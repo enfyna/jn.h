@@ -23,11 +23,11 @@ int main(void)
     char warehouse_arr[] = "[{\"id\":1,\"companyId\":1,\"name\":\"Warehouse1\",\"location\":{\"x\":0,\"y\":0},\"monthlyExpense\":120}]";
     (void)warehouse_arr;
 
-    // char json[] = "{\"password\":9876543210123,\"companyName\":\"Company\",\"auth\":\"cXdlOjEyMw==\"}";
-    //(void) json;
-
+    // Method 1 - If you dont know if it is a array or object
     JN_Arr* j = jn_arr(warehouse);
     JN_Obj* o = j->items[0];
+    
+    // Method 2 - If you know if it is a object get it directly
     // JN_Obj* o = jn_obj(warehouse);
 
     printf("---------------------------\n");
@@ -69,7 +69,6 @@ int main(void)
         printf("---------------------------\n");
     }
 
-    printf("ARRAYS\n");
     for (int i = 0; i < ja->arr_count; i++) {
         JN_Arr* ji = ja->arrays[i];
         for (int k = 0; k < ji->item_count; k++) {

@@ -1,7 +1,3 @@
-#include <assert.h>
-#include <stdbool.h>
-#include <stddef.h>
-
 #ifndef JN_H_
 #define JN_H_
 
@@ -15,10 +11,6 @@
 
 #ifndef MAX_JN_ITEMS
 #define MAX_JN_ITEMS 32
-#endif
-
-#ifndef MAX_ARR_SIZE
-#define MAX_ARR_SIZE 24
 #endif
 
 typedef struct {
