@@ -43,6 +43,8 @@ void ja_free(JN_Arr* j);
 #endif // JN_H_
 
 #ifdef JN_IMPLEMENTATION
+#include <assert.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -51,10 +53,11 @@ JN_Obj* jn_obj(char* json_data)
 {
     JN_Obj* jo = calloc(1, sizeof(JN_Obj));
 
-    int start_idx = 0;
-    int end_idx = 0;
+    size_t len = strlen(json_data);
+    int start_idx = -1;
+    int end_idx = -1;
     int stack = 0;
-    for (size_t i = 0; i < strlen(json_data); i++) {
+    for (size_t i = 0; i < len; i++) {
         char cur = json_data[i];
         if (cur == '{') {
             if (stack == 0) {
@@ -69,6 +72,8 @@ JN_Obj* jn_obj(char* json_data)
             }
         }
     }
+    assert(end_idx > 0);
+    assert(end_idx > start_idx);
 
     json_data[end_idx + 1] = '\0';
     json_data += start_idx + 1;
@@ -106,56 +111,42 @@ JN_Obj* jn_obj(char* json_data)
                 }
             }
         } else if (part == 1) {
-            val_start = i + 1;
-            val_end = i + 1;
+            val_type = 0;
             if (cur == ':') {
                 part++;
             }
         } else if (part == 2) {
-            if (val_type != 0) {
-                if (val_type == 3 && (cur == ',' || cur == '}')) {
-                    val_end = i;
-                    // printf("%.*s\n",
-                    //     val_end - val_start, json_data + val_start);
-                    part = 0;
-                    val_type = 0;
+            if (val_type == 0) {
+                if (cur == '{' || cur == '[') {
+                    val_type = 1;
+                    val_start = i;
+                    stack = 1;
+                } else if (cur == '"') {
+                    val_type = 2;
+                    val_start = i + 1;
+                    stack = 1;
+                } else if (cur - '0' < 10) {
+                    val_type = 3;
+                    val_start = i;
                     stack = 0;
-                    memcpy(jo->items[jo->count].key, json_data + key_start, key_end - key_start);
-                    mempcpy(jo->items[jo->count].value, json_data + val_start, val_end - val_start);
-                    jo->count++;
-                } else if (val_type == 2 && cur == '"') {
-                    val_end = i;
-                    // printf("%.*s\n",
-                    //     val_end - val_start, json_data + val_start);
-                    part = 0;
-                    val_type = 0;
-                    stack = 0;
-                    memcpy(jo->items[jo->count].key, json_data + key_start, key_end - key_start);
-                    mempcpy(jo->items[jo->count].value, json_data + val_start, val_end - val_start);
-                    jo->count++;
-                } else if (val_type == 1 && (cur == '}' || cur == ']')) {
-                    val_end = i + 1;
-                    // printf("%.*s\n",
-                    //     val_end - val_start, json_data + val_start);
-                    part++;
-                    val_type = 0;
-                    stack = 0;
-                    memcpy(jo->items[jo->count].key, json_data + key_start, key_end - key_start);
-                    mempcpy(jo->items[jo->count].value, json_data + val_start, val_end - val_start);
-                    jo->count++;
                 }
-            } else if (cur == '{' || cur == '[') {
-                val_type = 1;
-                val_start = i;
-                stack = 1;
-            } else if (cur == '"') {
-                val_type = 2;
-                val_start = i + 1;
-                stack = 1;
-            } else if (cur - '0' < 10) {
-                val_type = 3;
-                val_start = i;
+            } else if ((val_type == 3 && (cur == ',' || cur == '}'))
+                || (val_type == 2 && cur == '"')
+                || (val_type == 1 && (cur == '}' || cur == ']'))) {
+                if (val_type == 1) {
+                    val_end = i + 1;
+                    part++;
+                } else {
+                    val_end = i;
+                    part = 0;
+                }
+                // printf("%.*s\n",
+                //     val_end - val_start, json_data + val_start);
+                val_type = 0;
                 stack = 0;
+                memcpy(jo->items[jo->count].key, json_data + key_start, key_end - key_start);
+                mempcpy(jo->items[jo->count].value, json_data + val_start, val_end - val_start);
+                jo->count++;
             }
         } else if (part == 3) {
             if (cur == ',') {
