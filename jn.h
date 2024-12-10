@@ -152,7 +152,7 @@ JN_Obj* jn_obj(char* json_data)
                 val_type = 2;
                 val_start = i + 1;
                 stack = 1;
-            } else if (cur - '0' < 9) {
+            } else if (cur - '0' < 10) {
                 val_type = 3;
                 val_start = i;
                 stack = 0;
