@@ -13,6 +13,18 @@
 #define MAX_JN_ITEMS 32
 #endif
 
+#ifndef JN_MALLOC
+#define JN_MALLOC malloc
+#endif
+
+#ifndef JN_REALLOC
+#define JN_REALLOC realloc
+#endif
+
+#ifndef JN_CALLOC
+#define JN_CALLOC calloc
+#endif
+
 typedef struct {
     char key[MAX_KEY_LEN];
     char value[MAX_VALUE_LEN];
@@ -51,7 +63,7 @@ void ja_free(JN_Arr* j);
 
 JN_Obj* jn_obj(char* json_data)
 {
-    JN_Obj* jo = calloc(1, sizeof(JN_Obj));
+    JN_Obj* jo = JN_CALLOC(1, sizeof(JN_Obj));
 
     size_t len = strlen(json_data);
     int start_idx = -1;
@@ -164,7 +176,7 @@ void ja_add_obj(JN_Arr* ja, char* json_data)
     if (ja != NULL) {
         while (ja->item_count >= ja->item_capacity) {
             ja->item_capacity *= 2;
-            ja->items = realloc(ja->items, sizeof(JN_Obj*) * ja->item_capacity);
+            ja->items = JN_REALLOC(ja->items, sizeof(JN_Obj*) * ja->item_capacity);
         }
         ja->items[ja->item_count++] = o;
     }
@@ -172,20 +184,20 @@ void ja_add_obj(JN_Arr* ja, char* json_data)
 
 JN_Arr* jn_arr(char* json_data)
 {
-    JN_Arr* ja = calloc(1, sizeof(JN_Arr));
+    JN_Arr* ja = JN_CALLOC(1, sizeof(JN_Arr));
 
     if (json_data[0] == '{') {
         ja->item_capacity = 1;
-        ja->items = malloc(sizeof(JN_Obj*) * ja->item_capacity);
+        ja->items = JN_MALLOC(sizeof(JN_Obj*) * ja->item_capacity);
         ja->arrays = NULL;
         ja_add_obj(ja, json_data);
         return ja;
     }
 
     ja->item_capacity = 8;
-    ja->items = malloc(sizeof(JN_Obj*) * ja->item_capacity);
+    ja->items = JN_MALLOC(sizeof(JN_Obj*) * ja->item_capacity);
     ja->arr_capacity = 12;
-    ja->arrays = malloc(sizeof(JN_Arr*) * ja->item_capacity);
+    ja->arrays = JN_MALLOC(sizeof(JN_Arr*) * ja->item_capacity);
 
     bool escaped = false;
     int stack = 0;
