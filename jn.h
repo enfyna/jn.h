@@ -124,28 +124,35 @@ JN_Obj* jn_obj(char* json_data)
             }
         } else if (part == 1) {
             val_type = 0;
+            stack = 0;
             if (cur == ':') {
                 part++;
             }
         } else if (part == 2) {
             if (val_type == 0) {
+                val_start = i;
                 if (cur == '{' || cur == '[') {
                     val_type = 1;
-                    val_start = i;
                     stack = 1;
                 } else if (cur == '"') {
                     val_type = 2;
-                    val_start = i + 1;
+                    val_start++;
                     stack = 1;
                 } else if (cur - '0' < 10) {
                     val_type = 3;
-                    val_start = i;
                     stack = 0;
                 }
+                continue;
+            } else if (cur == '{' || cur == '[') {
+                stack++;
             } else if ((val_type == 3 && (cur == ',' || cur == '}'))
                 || (val_type == 2 && cur == '"')
                 || (val_type == 1 && (cur == '}' || cur == ']'))) {
                 if (val_type == 1) {
+                    if (stack > 1) {
+                        stack--;
+                        continue;
+                    }
                     val_end = i + 1;
                     part++;
                 } else {
