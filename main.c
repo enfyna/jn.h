@@ -26,7 +26,7 @@ int main(void)
     // Method 1 - If you dont know if it is a array or object
     JN_Arr* j = jn_arr(warehouse);
     JN_Obj* o = j->items[0];
-    
+
     // Method 2 - If you know if it is a object get it directly
     // JN_Obj* o = jn_obj(warehouse);
 
@@ -57,7 +57,7 @@ int main(void)
     char json_arr[] = "[{\"password\":1,\"companyName\":\"Neovim\",\"auth\":\"cXdlOjEyMw==\"},"
                       "{\"pass\":2,\"company\":\"GNU\",\"authkey\":\"38912*==\"},"
                       "[{\"pass\":3,\"company\":\"Linux\",\"authkey\":\"asdjlkasdjlk=\"},{\"pass\":4,\"company\":\"Linux\",\"authkey\":\"98ad0*sdsaj\"}],"
-                      "{\"passkey\":[1,2,3,4,5],\"comp\":\"XFCE\",\"token\":\"asjdkl==\"}]";
+                      "{\"passkey\":[[1],2,[3],4,5],\"comp\":\"XFCE\",\"token\":\"asjdkl==\"}]";
 
     JN_Arr* ja = jn_arr(json_arr);
 
@@ -81,5 +81,31 @@ int main(void)
     }
 
     ja_free(ja);
+
+    char body[] = ""
+                  "[{\"id\":1,\"companyId\":1,\"name\":\"Warehouse1\",\"location\":{\"x\":0,\"y\":0},\"monthlyExpense\":120},{\"id\":2,\"companyId\":1,\"name\":\"Yeni\",\"location\":{\"x\":578,\"y\":338},\"monthlyExpense\":100}]"
+                  "";
+    JN_Arr* h = jn_arr(body);
+    printf("%s\n", body);
+
+    for (int i = 0; i < h->item_count; i++) {
+        JN_Obj* jo = h->items[i];
+        for (int k = 0; k < jo->count; k++) {
+            printf("obj: \"%s\": %s\n", jo->items[k].key, jo->items[k].value);
+        }
+        printf("---------------------------\n");
+    }
+
+    for (int i = 0; i < h->arr_count; i++) {
+        JN_Arr* ji = h->arrays[i];
+        for (int k = 0; k < ji->item_count; k++) {
+            JN_Obj* jo = ji->items[k];
+            for (int j = 0; j < jo->count; j++) {
+                printf("\"%s\": %s\n", jo->items[j].key, jo->items[j].value);
+            }
+            printf("---------------------------\n");
+        }
+    }
+    ja_free(h);
     return 0;
 }
