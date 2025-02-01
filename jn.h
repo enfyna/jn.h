@@ -10,7 +10,19 @@
 #endif
 
 #ifndef MAX_JN_ITEMS
-#define MAX_JN_ITEMS 32
+#define MAX_JN_ITEMS 8
+#endif
+
+#ifndef JA_ITEM_CAP_INIT 
+#define JA_ITEM_CAP_INIT 8
+#endif
+
+#ifndef JA_ARRAY_CAP_INIT 
+#define JA_ARRAY_CAP_INIT 2
+#endif
+
+#ifndef JN_ASSERT
+#define JN_ASSERT assert
 #endif
 
 #ifndef JN_MALLOC
@@ -28,27 +40,27 @@
 typedef struct {
     char key[MAX_KEY_LEN];
     char value[MAX_VALUE_LEN];
-    int type;
-} JN_Key_Value_Pair;
+} JN_KV;
 
 typedef struct {
-    JN_Key_Value_Pair items[MAX_JN_ITEMS];
     int count;
+    JN_KV items[MAX_JN_ITEMS];
 } JN_Obj;
 
 struct JN_Arr {
     struct JN_Arr** arrays;
     int arr_count;
     int arr_capacity;
-    JN_Obj** items;
-    int item_count;
-    int item_capacity;
+
+    int count;
+    int capacity;
+    JN_Obj items[];
 };
 
 typedef struct JN_Arr JN_Arr;
 
 JN_Arr* jn_arr(char* json_data);
-JN_Obj* jn_obj(char* json_data);
+JN_Obj jn_obj(char* json_data);
 char* jo_value(JN_Obj* o, const char* key);
 void ja_free(JN_Arr* j);
 
@@ -61,9 +73,9 @@ void ja_free(JN_Arr* j);
 #include <stdlib.h>
 #include <string.h>
 
-JN_Obj* jn_obj(char* json_data)
+JN_Obj jn_obj(char* json_data)
 {
-    JN_Obj* jo = JN_CALLOC(1, sizeof(JN_Obj));
+    JN_Obj jo = { 0 };
 
     size_t len = strlen(json_data);
     int start_idx = -1;
@@ -84,8 +96,8 @@ JN_Obj* jn_obj(char* json_data)
             }
         }
     }
-    assert(end_idx > 0);
-    assert(end_idx > start_idx);
+    JN_ASSERT(end_idx > 0 && "Invalid JSON format.");
+    JN_ASSERT(end_idx > start_idx && "Invalid JSON format.");
 
     json_data[end_idx + 1] = '\0';
     json_data += start_idx + 1;
@@ -163,9 +175,11 @@ JN_Obj* jn_obj(char* json_data)
                 //     val_end - val_start, json_data + val_start);
                 val_type = 0;
                 stack = 0;
-                memcpy(jo->items[jo->count].key, json_data + key_start, key_end - key_start);
-                mempcpy(jo->items[jo->count].value, json_data + val_start, val_end - val_start);
-                jo->count++;
+                JN_ASSERT(key_end - key_start + 1 <= MAX_KEY_LEN);
+                memcpy(jo.items[jo.count].key, json_data + key_start, key_end - key_start);
+                JN_ASSERT(val_end - val_start + 1 <= MAX_VALUE_LEN);
+                memcpy(jo.items[jo.count].value, json_data + val_start, val_end - val_start);
+                jo.count++;
             }
         } else if (part == 3) {
             if (cur == ',') {
@@ -177,34 +191,38 @@ JN_Obj* jn_obj(char* json_data)
     return jo;
 }
 
-void ja_add_obj(JN_Arr* ja, char* json_data)
+JN_Arr* ja_add_obj(JN_Arr* ja, char* json_data)
 {
-    JN_Obj* o = jn_obj(json_data);
-    if (ja != NULL) {
-        while (ja->item_count >= ja->item_capacity) {
-            ja->item_capacity *= 2;
-            ja->items = JN_REALLOC(ja->items, sizeof(JN_Obj*) * ja->item_capacity);
+    JN_ASSERT(ja != NULL);
+
+    if (ja->count >= ja->capacity) {
+        while (ja->count >= ja->capacity) {
+            ja->capacity *= 2;
         }
-        ja->items[ja->item_count++] = o;
+        ja = JN_REALLOC(ja, sizeof(JN_Arr) + sizeof(JN_Obj) * ja->capacity);
     }
+
+    JN_Obj o = jn_obj(json_data);
+    ja->items[ja->count++] = o;
+    return ja;
 }
 
 JN_Arr* jn_arr(char* json_data)
 {
-    JN_Arr* ja = JN_CALLOC(1, sizeof(JN_Arr));
+    JN_Arr* ja;
 
     if (json_data[0] == '{') {
-        ja->item_capacity = 1;
-        ja->items = JN_MALLOC(sizeof(JN_Obj*) * ja->item_capacity);
+        ja = JN_CALLOC(1, sizeof(JN_Arr) + sizeof(JN_Obj) * 1);
+        ja->capacity = 1;
         ja->arrays = NULL;
         ja_add_obj(ja, json_data);
         return ja;
     }
 
-    ja->item_capacity = 8;
-    ja->items = JN_MALLOC(sizeof(JN_Obj*) * ja->item_capacity);
-    ja->arr_capacity = 12;
-    ja->arrays = JN_MALLOC(sizeof(JN_Arr*) * ja->item_capacity);
+    ja = JN_CALLOC(1, sizeof(JN_Arr) + sizeof(JN_Obj) * JA_ITEM_CAP_INIT);
+    ja->capacity = JA_ITEM_CAP_INIT;
+    ja->arr_capacity = JA_ARRAY_CAP_INIT;
+    ja->arrays = JN_MALLOC(sizeof(JN_Arr*) * ja->arr_capacity);
 
     bool escaped = false;
     int stack = 0;
@@ -242,24 +260,30 @@ JN_Arr* jn_arr(char* json_data)
                     // printf("\ntype1: %.*s\n",
                     //     item_end_idx - item_start_idx, json_data + item_start_idx);
                     json_data[item_end_idx] = '\0';
-                    ja_add_obj(ja, json_data + item_start_idx);
+                    ja = ja_add_obj(ja, json_data + item_start_idx);
                 } else if (type == 2 && cur == ']') {
                     // printf("\ntype2: %.*s\n",
                     //     item_end_idx - item_start_idx, json_data + item_start_idx);
                     json_data[item_end_idx] = '\0';
+
+                    if (ja->arr_count >= ja->arr_capacity) {
+                        while (ja->arr_count >= ja->arr_capacity) {
+                            ja->arr_capacity *= 2;
+                        }
+                        ja->arrays = JN_REALLOC(ja->arrays, sizeof(JN_Arr*) * ja->arr_capacity);
+                    }
+
                     JN_Arr* ji = jn_arr(json_data + item_start_idx);
                     ja->arrays[ja->arr_count++] = ji;
                 } else {
                     // printf("\nassert: %.*s\n",
                     //     item_end_idx - item_start_idx, json_data + item_start_idx);
-                    assert(false && "Invalid JSON format.");
+                    JN_ASSERT(false && "Invalid JSON format.");
                 }
                 type = 0;
             }
         }
     }
-    printf("\n");
-
     return ja;
 }
 
@@ -278,11 +302,7 @@ void ja_free(JN_Arr* ja)
     for (int i = 0; i < ja->arr_count; i++) {
         ja_free(ja->arrays[i]);
     }
-    for (int i = 0; i < ja->item_count; i++) {
-        free(ja->items[i]);
-    }
     free(ja->arrays);
-    free(ja->items);
     free(ja);
 }
 
