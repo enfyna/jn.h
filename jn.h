@@ -13,11 +13,11 @@
 #define MAX_JN_ITEMS 8
 #endif
 
-#ifndef JA_ITEM_CAP_INIT 
+#ifndef JA_ITEM_CAP_INIT
 #define JA_ITEM_CAP_INIT 8
 #endif
 
-#ifndef JA_ARRAY_CAP_INIT 
+#ifndef JA_ARRAY_CAP_INIT
 #define JA_ARRAY_CAP_INIT 2
 #endif
 
@@ -44,7 +44,7 @@ typedef struct {
 
 typedef struct {
     int count;
-    JN_KV items[MAX_JN_ITEMS];
+    JN_KV items[];
 } JN_Obj;
 
 struct JN_Arr {
@@ -52,15 +52,15 @@ struct JN_Arr {
     int arr_count;
     int arr_capacity;
 
+    JN_Obj** items;
     int count;
     int capacity;
-    JN_Obj items[];
 };
 
 typedef struct JN_Arr JN_Arr;
 
 JN_Arr* jn_arr(char* json_data);
-JN_Obj jn_obj(char* json_data);
+JN_Obj* jn_obj(char* json_data);
 char* jo_value(JN_Obj* o, const char* key);
 void ja_free(JN_Arr* j);
 
@@ -73,14 +73,16 @@ void ja_free(JN_Arr* j);
 #include <stdlib.h>
 #include <string.h>
 
-JN_Obj jn_obj(char* json_data)
+JN_Obj* jn_obj(char* json_data)
 {
-    JN_Obj jo = { 0 };
+    JN_Obj* jo;
+    int cap = 1;
 
     size_t len = strlen(json_data);
     int start_idx = -1;
     int end_idx = -1;
     int stack = 0;
+    int cap_stack = 0;
     for (size_t i = 0; i < len; i++) {
         char cur = json_data[i];
         if (cur == '{') {
@@ -88,14 +90,25 @@ JN_Obj jn_obj(char* json_data)
                 start_idx = i;
             }
             stack++;
-        }
-        if (cur == '}') {
+            cap_stack++;
+        } else if (cur == '}') {
             stack--;
+            cap_stack--;
             if (stack == 0) {
                 end_idx = i;
             }
         }
+        if (cur == '[') {
+            cap_stack++;
+        } else if (cur == ']') {
+            cap_stack--;
+        } else if (cur == ',' && cap_stack == 1) {
+            cap += 1;
+        }
     }
+
+    jo = JN_CALLOC(1, sizeof(*jo) + sizeof(JN_KV[cap]));
+
     JN_ASSERT(end_idx > 0 && "Invalid JSON format.");
     JN_ASSERT(end_idx > start_idx && "Invalid JSON format.");
 
@@ -175,11 +188,12 @@ JN_Obj jn_obj(char* json_data)
                 //     val_end - val_start, json_data + val_start);
                 val_type = 0;
                 stack = 0;
+                JN_ASSERT(jo->count < cap);
                 JN_ASSERT(key_end - key_start + 1 <= MAX_KEY_LEN);
-                memcpy(jo.items[jo.count].key, json_data + key_start, key_end - key_start);
+                memcpy(jo->items[jo->count].key, json_data + key_start, key_end - key_start);
                 JN_ASSERT(val_end - val_start + 1 <= MAX_VALUE_LEN);
-                memcpy(jo.items[jo.count].value, json_data + val_start, val_end - val_start);
-                jo.count++;
+                memcpy(jo->items[jo->count].value, json_data + val_start, val_end - val_start);
+                jo->count++;
             }
         } else if (part == 3) {
             if (cur == ',') {
@@ -199,10 +213,10 @@ JN_Arr* ja_add_obj(JN_Arr* ja, char* json_data)
         while (ja->count >= ja->capacity) {
             ja->capacity *= 2;
         }
-        ja = JN_REALLOC(ja, sizeof(JN_Arr) + sizeof(JN_Obj) * ja->capacity);
+        ja->items = JN_REALLOC(ja->items, sizeof(JN_Obj*) * ja->capacity);
     }
 
-    JN_Obj o = jn_obj(json_data);
+    JN_Obj* o = jn_obj(json_data);
     ja->items[ja->count++] = o;
     return ja;
 }
@@ -210,19 +224,21 @@ JN_Arr* ja_add_obj(JN_Arr* ja, char* json_data)
 JN_Arr* jn_arr(char* json_data)
 {
     JN_Arr* ja;
+    ja = JN_CALLOC(1, sizeof(JN_Arr));
 
     if (json_data[0] == '{') {
-        ja = JN_CALLOC(1, sizeof(JN_Arr) + sizeof(JN_Obj) * 1);
-        ja->capacity = 1;
+        ja->arr_capacity = 0;
         ja->arrays = NULL;
+        ja->capacity = 1;
+        ja->items = JN_CALLOC(1, sizeof(JN_Obj*) * ja->capacity);
         ja_add_obj(ja, json_data);
         return ja;
     }
 
-    ja = JN_CALLOC(1, sizeof(JN_Arr) + sizeof(JN_Obj) * JA_ITEM_CAP_INIT);
     ja->capacity = JA_ITEM_CAP_INIT;
+    ja->items = JN_CALLOC(1, sizeof(JN_Obj*) * ja->capacity);
     ja->arr_capacity = JA_ARRAY_CAP_INIT;
-    ja->arrays = JN_MALLOC(sizeof(JN_Arr*) * ja->arr_capacity);
+    ja->arrays = JN_CALLOC(1, sizeof(JN_Arr*) * ja->arr_capacity);
 
     bool escaped = false;
     int stack = 0;
@@ -302,7 +318,11 @@ void ja_free(JN_Arr* ja)
     for (int i = 0; i < ja->arr_count; i++) {
         ja_free(ja->arrays[i]);
     }
+    for (int i = 0; i < ja->count; i++) {
+        free(ja->items[i]);
+    }
     free(ja->arrays);
+    free(ja->items);
     free(ja);
 }
 
