@@ -1,9 +1,17 @@
-default: example
+default: example compile
 
 CFLAGS=-Wall -Wextra -O0 -fsanitize=address,undefined,leak,integer -ggdb -pedantic
 
-example: example.c
-	clang $(CFLAGS) -o ./build/$@ $^
+BUILD_PATH=build
+
+example: example.c $(BUILD_PATH)
+	clang $(CFLAGS) -o $(BUILD_PATH)/$@ $<
+
+compile: compile.c $(BUILD_PATH)
+	clang $(CFLAGS) -o $(BUILD_PATH)/$@ $<
+
+build:
+	mkdir -p ./$@
 
 .PHONY=clean
 clean:
