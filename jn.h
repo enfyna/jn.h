@@ -5,26 +5,26 @@
 
 #define jn_data_str(j, jn_data) jn_data.length, jn_data.start + j.data
 
-#define FOREACH_JN_VALUE_TYPE(Function)                    \
-    Function(JN_VT_NONE)                                   \
-        Function(JN_VT_INVALID)                            \
-            Function(JN_VT_STRING)                         \
-                Function(JN_VT_NUMBER)                     \
-                    Function(JN_VT_ARRAY)                  \
-                        Function(JN_VT_OBJECT)             \
-                            Function(JN_VT_KEYWORD)        \
-                                Function(JN_VT_WHITESPACE) \
-                                    Function(JN_VT_VALUE)
+#define FOREACH_JN_TYPE(Function)                    \
+    Function(JN_T_NONE)                                   \
+        Function(JN_T_INVALID)                            \
+            Function(JN_T_STRING)                         \
+                Function(JN_T_NUMBER)                     \
+                    Function(JN_T_ARRAY)                  \
+                        Function(JN_T_OBJECT)             \
+                            Function(JN_T_KEYWORD)        \
+                                Function(JN_T_WHITESPACE) \
+                                    Function(JN_T_VALUE)
 
 #define GENERATE_ENUM(ENUM) ENUM,
 #define GENERATE_STRING(STRING) #STRING,
 
-enum JN_ValueType {
-    FOREACH_JN_VALUE_TYPE(GENERATE_ENUM)
+enum JN_Type {
+    FOREACH_JN_TYPE(GENERATE_ENUM)
 };
 
-static const char* JN_VT_String[] = {
-    FOREACH_JN_VALUE_TYPE(GENERATE_STRING)
+static const char* JN_T_String[] = {
+    FOREACH_JN_TYPE(GENERATE_STRING)
 };
 
 typedef struct {
@@ -35,7 +35,7 @@ typedef struct {
 
 typedef struct {
     JN_Data data;
-    enum JN_ValueType type;
+    enum JN_Type type;
 } JN_Value;
 
 typedef struct {
@@ -59,7 +59,7 @@ typedef struct {
     const char* data;
     uint data_length;
 
-    enum JN_ValueType type;
+    enum JN_Type type;
     union {
         JN_Data literal;
         JN_ValueList list;
@@ -117,26 +117,26 @@ JN_Value skip_next_value(JN* j, size_t* pos)
     JN_Value val = { 0 };
 
     if (*pos >= j->data_length)
-        return (JN_Value) { .type = JN_VT_NONE };
+        return (JN_Value) { .type = JN_T_NONE };
 
     char c = j->data[*pos];
     if (c == '"') {
-        val.type = JN_VT_STRING;
+        val.type = JN_T_STRING;
         val.data = skip_next_string(j, pos);
     } else if (c == '{') {
-        val.type = JN_VT_OBJECT;
+        val.type = JN_T_OBJECT;
         val.data = skip_next_object(j, pos);
     } else if (isdigit(c) || c == '-') {
-        val.type = JN_VT_NUMBER;
+        val.type = JN_T_NUMBER;
         val.data = skip_next_number(j, pos);
     } else if (c == '[') {
-        val.type = JN_VT_ARRAY;
+        val.type = JN_T_ARRAY;
         val.data = skip_next_array(j, pos);
     } else if (c == 'n' || c == 'f' || c == 't') {
-        val.type = JN_VT_KEYWORD;
+        val.type = JN_T_KEYWORD;
         val.data = skip_next_keyword(j, pos);
     } else {
-        val.type = JN_VT_INVALID;
+        val.type = JN_T_INVALID;
         val.data.isValid = false;
         fprintf(stderr, "Found unexpected value start %c @ index: %zu!\n", c, *pos);
     }
@@ -605,8 +605,8 @@ JN_Data skip_next_object(JN* j, size_t* pos)
         ++*pos;
         skip_whitespace(j, pos);
     } else {
-        while ((kv = skip_next_kv(j, pos, &is_last)).value.type != JN_VT_NONE) {
-            if (kv.value.type == JN_VT_INVALID) {
+        while ((kv = skip_next_kv(j, pos, &is_last)).value.type != JN_T_NONE) {
+            if (kv.value.type == JN_T_INVALID) {
                 fprintf(stderr, "Error: key/value pair is invalid!\n");
                 j->isValid = false;
                 break;
@@ -627,26 +627,26 @@ JN_KeyValuePair skip_next_kv(JN* j, size_t* pos, bool* is_last)
     JN_Data key = skip_next_string(j, pos);
     // printf("key: start: %d, length: %d\n", key.start, key.length);
     if (key.isValid == false)
-        return (JN_KeyValuePair) { .value.type = JN_VT_INVALID };
+        return (JN_KeyValuePair) { .value.type = JN_T_INVALID };
 
     skip_whitespace(j, pos);
     JN_Data col = skip_next_char(j, pos, ':');
     // printf("col: start: %d, length: %d\n", col.start, col.length);
     if (col.isValid == false)
-        return (JN_KeyValuePair) { .value.type = JN_VT_INVALID };
+        return (JN_KeyValuePair) { .value.type = JN_T_INVALID };
 
     skip_whitespace(j, pos);
     JN_Value val = skip_next_value(j, pos);
     // printf("val: start: %d, length: %d\n", val.data.start, val.data.length);
     if (val.data.isValid == false)
-        return (JN_KeyValuePair) { .value.type = JN_VT_INVALID };
+        return (JN_KeyValuePair) { .value.type = JN_T_INVALID };
 
     skip_whitespace(j, pos);
     JN_Data com = skip_next_chars(j, pos, ",}");
     skip_whitespace(j, pos);
     // printf("com: start: %d, length: %d\n", com.start, com.length);
     if (com.isValid == false)
-        return (JN_KeyValuePair) { .value.type = JN_VT_INVALID };
+        return (JN_KeyValuePair) { .value.type = JN_T_INVALID };
 
     if (j->data[com.start] == '}')
         *is_last = true;
@@ -693,7 +693,7 @@ void jn_get_info(JN* j, uint length)
     if (j->data[pos] == '[') {
         // fprintf(stderr, "Parsing array: %s\n", j->data + pos);
 
-        j->type = JN_VT_ARRAY;
+        j->type = JN_T_ARRAY;
         j->isValid = true;
         j->list.count = 0;
         j->list.capacity = 16;
@@ -709,19 +709,19 @@ void jn_get_info(JN* j, uint length)
             ++pos;
             skip_whitespace(j, &pos);
         } else {
-            while ((vl = skip_next_value(j, &pos)).type != JN_VT_NONE) {
+            while ((vl = skip_next_value(j, &pos)).type != JN_T_NONE) {
                 if (j->list.count >= j->list.capacity) {
                     j->list.capacity = j->list.count * 2;
                     j->list.items = realloc(j->list.items, sizeof(JN_ValueList) * j->list.capacity);
                 }
 
-                if (vl.type == JN_VT_INVALID || vl.data.isValid == false) {
+                if (vl.type == JN_T_INVALID || vl.data.isValid == false) {
                     fprintf(stderr, "Error: Invalid value found!\n");
                     j->isValid = false;
                     break;
                 }
 
-                if (vl.type != JN_VT_WHITESPACE)
+                if (vl.type != JN_T_WHITESPACE)
                     j->list.items[j->list.count++] = vl;
 
                 skip_whitespace(j, &pos);
@@ -740,7 +740,7 @@ void jn_get_info(JN* j, uint length)
     } else if (j->data[pos] == '{') {
         // fprintf(stderr, "Parsing object: %s\n", j->data + pos);
 
-        j->type = JN_VT_OBJECT;
+        j->type = JN_T_OBJECT;
         j->isValid = true;
         j->kvs.count = 0;
         j->kvs.capacity = 16;
@@ -756,19 +756,19 @@ void jn_get_info(JN* j, uint length)
             ++pos;
             skip_whitespace(j, &pos);
         } else {
-            while ((kv = skip_next_kv(j, &pos, &is_last)).value.type != JN_VT_NONE) {
+            while ((kv = skip_next_kv(j, &pos, &is_last)).value.type != JN_T_NONE) {
                 if (j->kvs.count >= j->kvs.capacity) {
                     j->kvs.capacity = j->kvs.count * 2;
                     j->kvs.items = realloc(j->kvs.items, sizeof(JN_KeyValuePair) * j->kvs.capacity);
                 }
 
-                if (kv.value.type == JN_VT_INVALID) {
+                if (kv.value.type == JN_T_INVALID) {
                     fprintf(stderr, "Error: Invalid key/value pair found!\n");
                     j->isValid = false;
                     return;
                 }
 
-                if (kv.value.type != JN_VT_WHITESPACE)
+                if (kv.value.type != JN_T_WHITESPACE)
                     j->kvs.items[j->kvs.count++] = kv;
 
                 if (is_last)
@@ -799,9 +799,9 @@ JN jn_alloc(char* json_data, uint length)
 
 void jn_free(JN* jn)
 {
-    if (jn->type == JN_VT_OBJECT)
+    if (jn->type == JN_T_OBJECT)
         free(jn->kvs.items);
-    else if (jn->type == JN_VT_ARRAY)
+    else if (jn->type == JN_T_ARRAY)
         free(jn->list.items);
 }
 
@@ -832,8 +832,8 @@ bool jn_is_key(JN* j, JN_KeyValuePair* kv, const char* key)
 
 JN_Value jn_obj_get_value(JN* j, const char* key)
 {
-    JN_Value value = (JN_Value) { .type = JN_VT_INVALID };
-    if (j == NULL || j->type != JN_VT_OBJECT || key == NULL)
+    JN_Value value = (JN_Value) { .type = JN_T_INVALID };
+    if (j == NULL || j->type != JN_T_OBJECT || key == NULL)
         return value;
 
     for (size_t i = 0; i < j->kvs.count; i++) {
@@ -842,14 +842,14 @@ JN_Value jn_obj_get_value(JN* j, const char* key)
         };
     }
 
-    value.type = JN_VT_NONE;
+    value.type = JN_T_NONE;
     return value;
 }
 
 JN jn_obj_get(JN* j, const char* key)
 {
-    JN new = (JN) { .type = JN_VT_INVALID };
-    if (j == NULL || j->type != JN_VT_OBJECT || key == NULL)
+    JN new = (JN) { .type = JN_T_INVALID };
+    if (j == NULL || j->type != JN_T_OBJECT || key == NULL)
         return new;
 
     for (size_t i = 0; i < j->kvs.count; i++) {
@@ -860,14 +860,14 @@ JN jn_obj_get(JN* j, const char* key)
         };
     }
 
-    new.type = JN_VT_NONE;
+    new.type = JN_T_NONE;
     return new;
 }
 
 JN jn_arr_get(JN* j, size_t idx)
 {
-    JN new = (JN) { .type = JN_VT_INVALID };
-    if (j == NULL || j->type != JN_VT_ARRAY || idx >= j->list.count)
+    JN new = (JN) { .type = JN_T_INVALID };
+    if (j == NULL || j->type != JN_T_ARRAY || idx >= j->list.count)
         return new;
 
     JN_Value value = j->list.items[idx];
@@ -878,7 +878,7 @@ JN jn_arr_get(JN* j, size_t idx)
 void jn_print_full(JN* j)
 {
     if (j->isValid) {
-        if (j->type == JN_VT_OBJECT) {
+        if (j->type == JN_T_OBJECT) {
             printf("{\n");
             for (size_t i = 0; i < j->kvs.count; i++) {
                 printf("\t%.*s: ",
@@ -888,12 +888,12 @@ void jn_print_full(JN* j)
                     printf("%.*s",
                         j->kvs.items[i].value.data.length, j->data + j->kvs.items[i].value.data.start);
                 else
-                    printf("%s", JN_VT_String[j->kvs.items[i].value.type]);
+                    printf("%s", JN_T_String[j->kvs.items[i].value.type]);
 
                 (i < j->kvs.count - 1) ? printf(",\n") : printf("\n");
             }
             printf("}\n");
-        } else if (j->type == JN_VT_ARRAY) {
+        } else if (j->type == JN_T_ARRAY) {
             printf("[\n");
             for (size_t i = 0; i < j->list.count; i++) {
                 printf("\t%.*s",
@@ -902,7 +902,7 @@ void jn_print_full(JN* j)
                 printf((i < j->list.count - 1) ? (",\n") : ("\n"));
             }
             printf("]\n");
-        } else if (j->type != JN_VT_INVALID) {
+        } else if (j->type != JN_T_INVALID) {
             printf("%.*s\n", j->literal.length, j->data + j->literal.start);
         } else {
             fprintf(stderr, "Invalid data\n");
@@ -913,27 +913,27 @@ void jn_print_full(JN* j)
 void jn_print(JN* j)
 {
     if (j->isValid) {
-        if (j->type == JN_VT_OBJECT) {
+        if (j->type == JN_T_OBJECT) {
             printf("{\n");
             for (size_t i = 0; i < j->kvs.count; i++) {
                 printf("\t%.*s :: %s",
                     j->kvs.items[i].key.length, j->data + j->kvs.items[i].key.start,
-                    JN_VT_String[j->kvs.items[i].value.type]);
+                    JN_T_String[j->kvs.items[i].value.type]);
 
                 (i < j->kvs.count - 1) ? printf(",\n") : printf("\n");
             }
             printf("}\n");
-        } else if (j->type == JN_VT_ARRAY) {
+        } else if (j->type == JN_T_ARRAY) {
             printf("[\n");
             for (size_t i = 0; i < j->list.count; i++) {
                 printf("\t%s",
-                    JN_VT_String[j->list.items[i].type]);
+                    JN_T_String[j->list.items[i].type]);
 
                 printf((i < j->list.count - 1) ? (",\n") : ("\n"));
             }
             printf("]\n");
-        } else if (j->type != JN_VT_INVALID) {
-            printf("%s\n", JN_VT_String[j->type]);
+        } else if (j->type != JN_T_INVALID) {
+            printf("%s\n", JN_T_String[j->type]);
         } else {
             fprintf(stderr, "Invalid data!\n");
         }

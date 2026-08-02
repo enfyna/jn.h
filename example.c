@@ -25,7 +25,7 @@ int main(int argc, char* argv[])
     jn_print_full(&j);
     printf("---------------------------\n");
 
-    if (j.type == JN_VT_ARRAY) {
+    if (j.type == JN_T_ARRAY) {
         JN temp = j;
         j = jn_arr_get(&j, 0);
         jn_free(&temp);
@@ -44,9 +44,9 @@ int main(int argc, char* argv[])
 
     for (size_t i = 0; i < key_count; i++) {
         JN value = jn_obj_get(&j, keys[i]);
-        if (value.type == JN_VT_INVALID) {
+        if (value.type == JN_T_INVALID) {
             printf("%s -> Invalid arguments!\n", keys[i]);
-        } else if (value.type == JN_VT_NONE) {
+        } else if (value.type == JN_T_NONE) {
             printf("%s -> Not found!\n", keys[i]);
         } else {
             printf("%s -> ", keys[i]);
@@ -63,7 +63,7 @@ int main(int argc, char* argv[])
         printf("\t%.*s :: %.*s (%s)\n",
             jn_data_str(location, kv.key),
             jn_data_str(location, kv.value.data),
-            JN_VT_String[kv.value.type]);
+            JN_T_String[kv.value.type]);
     }
 
     printf("---------------------------\n");
@@ -82,9 +82,9 @@ int main(int argc, char* argv[])
 
     for (size_t i = 0; i < ja.list.count; i++) {
         JN jo = jn_arr_get(&ja, i);
-        if (jo.type == JN_VT_OBJECT)
+        if (jo.type == JN_T_OBJECT)
             jn_print_full(&jo);
-        else if (jo.type == JN_VT_ARRAY) {
+        else if (jo.type == JN_T_ARRAY) {
             for (size_t k = 0; k < jo.list.count; k++) {
                 JN je = jn_arr_get(&jo, k);
                 jn_print_full(&je);
