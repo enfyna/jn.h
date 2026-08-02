@@ -81,18 +81,16 @@ void jn_print_full(JN* j);
 void jn_print(JN* j);
 void jn_free(JN* j);
 
-
 #ifdef JN_IMPLEMENTATION
-
 
 #include <assert.h>
 #include <ctype.h>
+#include <limits.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-
 
 #define STRSTR(S) #S
 #define STR(S) STRSTR(S)
@@ -398,10 +396,21 @@ JN_Data skip_next_number(JN* j, size_t* pos)
     return data;
 }
 
+short has_utf8_header(unsigned char c)
+{
+    short len = CHAR_BIT - 1;
+    for (int j = len; j >= len - 5; j--) {
+        if (((c >> j) & 1U) == 0)
+            return len - j;
+    }
+    return 0;
+}
+
 JN_Data skip_next_string(JN* j, size_t* pos)
 {
     const char specialChars[] = " !@#$%^&*()_+-=[]{}|;:',.<>/?";
     const char escapeChars[] = "bfnrt\\/\"";
+    short utf8_byte_count = 0;
 
     JN_Data data = { .isValid = true };
     data.start = *pos;
@@ -409,6 +418,7 @@ JN_Data skip_next_string(JN* j, size_t* pos)
     enum JN_STRING_SECTION {
         START,
         INSIDE,
+        UTF8,
         ESCAPE,
         ESCAPE_U_1,
         ESCAPE_U_2,
@@ -447,8 +457,23 @@ JN_Data skip_next_string(JN* j, size_t* pos)
                 current_section = ESCAPE;
             } else if (isalnum(c) || memchr(specialChars, c, 29) != NULL) {
                 continue;
+            } else if ((utf8_byte_count = has_utf8_header((unsigned char)c) - 1) > 0) {
+                current_section = UTF8;
             } else {
                 fprintf(stderr, "Line[" STR(__LINE__) "]: Error parsing string. Didnt expect '%c' @ index: %zu\n", c, *pos);
+                data.isValid = false;
+                return data;
+            }
+            break;
+        }
+        case UTF8: {
+            if (has_utf8_header((unsigned char)c) == 1) {
+                utf8_byte_count -= 1;
+                if (utf8_byte_count == 0) {
+                    current_section = INSIDE;
+                }
+            } else {
+                fprintf(stderr, "Line[" STR(__LINE__) "]: Error parsing UTF8. Invalid byte @ index: %zu\n", *pos);
                 data.isValid = false;
                 return data;
             }
@@ -914,7 +939,6 @@ void jn_print(JN* j)
         }
     }
 }
-
 
 #endif // JN_IMPLEMENTATION
 #endif // JN_H_
