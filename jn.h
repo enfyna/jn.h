@@ -71,9 +71,9 @@ typedef struct {
 
 JN jn_alloc(char* json_data, uint length);
 
-JN jn_obj_get(JN* j, char* key);
-JN_Value jn_obj_get_value(JN* j, char* key);
-bool jn_is_key(JN* j, JN_KeyValuePair* kv, char* key);
+JN jn_obj_get(JN* j, const char* key);
+JN_Value jn_obj_get_value(JN* j, const char* key);
+bool jn_is_key(JN* j, JN_KeyValuePair* kv, const char* key);
 
 JN jn_arr_get(JN* j, size_t idx);
 
@@ -780,7 +780,7 @@ void jn_free(JN* jn)
         free(jn->list.items);
 }
 
-bool jn_is_key(JN* j, JN_KeyValuePair* kv, char* key)
+bool jn_is_key(JN* j, JN_KeyValuePair* kv, const char* key)
 {
     if (key == NULL || kv == NULL || j == NULL)
         return false;
@@ -805,7 +805,7 @@ bool jn_is_key(JN* j, JN_KeyValuePair* kv, char* key)
     return true;
 }
 
-JN_Value jn_obj_get_value(JN* j, char* key)
+JN_Value jn_obj_get_value(JN* j, const char* key)
 {
     JN_Value value = (JN_Value) { .type = JN_VT_INVALID };
     if (j == NULL || j->type != JN_VT_OBJECT || key == NULL)
@@ -821,7 +821,7 @@ JN_Value jn_obj_get_value(JN* j, char* key)
     return value;
 }
 
-JN jn_obj_get(JN* j, char* key)
+JN jn_obj_get(JN* j, const char* key)
 {
     JN new = (JN) { .type = JN_VT_INVALID };
     if (j == NULL || j->type != JN_VT_OBJECT || key == NULL)
