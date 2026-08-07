@@ -16,7 +16,8 @@
                                 Function(JN_T_NONE)
 
 #define GENERATE_ENUM(ENUM) ENUM,
-#define GENERATE_STRING(STRING) #STRING,
+#define GSTRSTR(S) &(#S)[5],
+#define GENERATE_STRING(S) GSTRSTR(S)
 
 enum JN_Type {
     FOREACH_JN_TYPE(GENERATE_ENUM)
