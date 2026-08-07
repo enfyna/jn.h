@@ -5,16 +5,15 @@
 
 #define jn_data_str(j, jn_data) jn_data.length, jn_data.start + j.data
 
-#define FOREACH_JN_TYPE(Function)                    \
-    Function(JN_T_NONE)                                   \
-        Function(JN_T_INVALID)                            \
-            Function(JN_T_STRING)                         \
-                Function(JN_T_NUMBER)                     \
-                    Function(JN_T_ARRAY)                  \
-                        Function(JN_T_OBJECT)             \
-                            Function(JN_T_KEYWORD)        \
-                                Function(JN_T_WHITESPACE) \
-                                    Function(JN_T_VALUE)
+#define FOREACH_JN_TYPE(Function)                  \
+    Function(JN_T_WHITESPACE)                      \
+        Function(JN_T_KEYWORD)                     \
+            Function(JN_T_STRING)                  \
+                Function(JN_T_NUMBER)              \
+                    Function(JN_T_OBJECT)          \
+                        Function(JN_T_ARRAY)       \
+                            Function(JN_T_INVALID) \
+                                Function(JN_T_NONE)
 
 #define GENERATE_ENUM(ENUM) ENUM,
 #define GENERATE_STRING(STRING) #STRING,
